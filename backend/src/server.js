@@ -4,8 +4,8 @@ import { connectDB } from "./lib/db.js";
 import cors from "cors";
 import Path from "path";
 import { serve } from "inngest/express";
-import { inngest } from "./lib/inngest.js";
-import { functions } from "./lib/inngest.js";
+import { inngest, functions } from "./lib/inngest.js";
+
 dotenv.config({ quiet: true });
 
 const app = express();
@@ -17,10 +17,10 @@ app.use(express.json());
 // CREDITIALS: TRUE => SERVER ALLOWS A BROWSER TO INCLUDE COOKIES ON REQUEST
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
-app.use("/api/inngest", serve({client: inngest,functions}));
+app.use("/api/inngest", serve({ client: inngest, functions }));
 
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK" });
+  res.status(200).json({ msg: "api is up and running" });
 });
 
 const startServer = async () => {
