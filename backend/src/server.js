@@ -29,11 +29,6 @@ app.get("/health", (req, res) => {
   res.status(200).json({ msg: "api is up and running" });
 });
 
-// A protected route that requires authentication and user verification
-app.get("/video-calls", protectRoute, (req, res) => {
-  res.status(200).json({ msg: "Welcome to protected live video call." });
-});
-
 const startServer = async () => {
   try {
     await connectDB();
