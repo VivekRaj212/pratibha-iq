@@ -5,6 +5,8 @@ import cors from "cors";
 import Path from "path";
 import { serve } from "inngest/express";
 import { inngest, functions } from "./lib/inngest.js";
+import { clerkMiddleware } from "@clerk/express";
+import chatRoutes from "./routes/chatRoutes.js";
 
 dotenv.config({ quiet: true });
 
@@ -17,10 +19,14 @@ app.use(express.json());
 // CREDITIALS: TRUE => SERVER ALLOWS A BROWSER TO INCLUDE COOKIES ON REQUEST
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
+app.use(clerkMiddleware());
+
 app.use("/api/inngest", serve({ client: inngest, functions }));
 
+app.use("/api/chat", chatRoutes);
+
 app.get("/health", (req, res) => {
-  res.status(200).json({ msg: "api is up and running" });
+  res.status(200).json({ message: "api is up and running" });
 });
 
 const startServer = async () => {
