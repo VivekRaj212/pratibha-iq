@@ -33,8 +33,10 @@ export const createSession = async (req, res) => {
 
     // chat messaging
     const channel = serverClient.channel("messaging", callId, {
-      name: `${problem} - Session)`,
+      name: `${problem} - Session`,
       created_by_id: clerkId,
+      members: [clerkId], // initially only host is a member, others will join later
+    });
       members: [clerkId], // initially only host is a member, others will join later
     });
     await channel.create();
