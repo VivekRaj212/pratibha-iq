@@ -37,8 +37,7 @@ export const createSession = async (req, res) => {
       created_by_id: clerkId,
       members: [clerkId], // initially only host is a member, others will join later
     });
-      members: [clerkId], // initially only host is a member, others will join later
-    });
+
     await channel.create();
     res.status(201).json({
       session,
