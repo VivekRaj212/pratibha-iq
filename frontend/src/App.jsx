@@ -1,26 +1,25 @@
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignOutButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/clerk-react";
-import "./App.css";
+import { useUser } from "@clerk/clerk-react";
+import { Routes, Route, Navigate } from "react-router";
+import HomePage from "./pages/HomePage";
+import ProblemsPage from "./pages/ProblemsPage";
+import { Toaster } from "react-hot-toast";
 
 function App() {
+  const { isSignedIn, isLoaded } = useUser();
+
+  if (!isLoaded) return null;
+
+  console.log("User signed in:", isSignedIn);
   return (
     <>
-      <h1>Welcome to PratibhaIQ</h1>
-      <SignedOut>
-        <SignInButton mode="modal">
-          <button>Login</button>
-        </SignInButton>
-      </SignedOut>
-      <SignedIn>
-        <SignOutButton />
-      </SignedIn>
-      <UserButton />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route
+          path="/problems"
+          element={isSignedIn ? <ProblemsPage /> : <Navigate to={"/"} />}
+        />
+      </Routes>
+      <Toaster />
     </>
   );
 }
