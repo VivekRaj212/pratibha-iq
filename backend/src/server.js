@@ -8,6 +8,10 @@ import { inngest, functions } from "./lib/inngest.js";
 import { clerkMiddleware } from "@clerk/express";
 import chatRoutes from "./routes/chatRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
+import codeRoutes from "./routes/codeRoutes.js";
+import problemRoutes from "./routes/problemsRoutes.js";
+
+import User from "./models/User.js";
 
 dotenv.config({ quiet: true });
 
@@ -26,9 +30,16 @@ app.use("/api/inngest", serve({ client: inngest, functions }));
 
 app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use("/api/code", codeRoutes);
+app.use("/api/problems", problemRoutes)
 
 app.get("/health", (req, res) => {
   res.status(200).json({ message: "api is up and running" });
+});
+
+app.get("/debug/users", async (req, res) => {
+  const users = await User.find({}).select("clerkId email");
+  res.json(users);
 });
 
 const startServer = async () => {

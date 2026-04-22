@@ -26,6 +26,7 @@ const syncUser = inngest.createFunction(
       email: primaryEmail,
       name: `${first_name || ""} ${last_name || ""}`,
       profileImage: image_url,
+      role: "user", // Default role, can be updated later by an admin
     };
     await User.create(newUser);
 
