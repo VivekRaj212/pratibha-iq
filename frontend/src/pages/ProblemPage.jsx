@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router";
-import { PROBLEMS } from "../data/problems";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ProblemDescription from "../components/ProblemDescription";
@@ -15,7 +14,7 @@ import {
     formatExpectedForDisplay,
     outputsMatch,
 } from "../lib/testRunner.js";
-import axios from "axios";
+import axiosInstance from "../lib/axios.js";
 
 const ProblemPage = () => {
     const { id } = useParams();
@@ -37,7 +36,7 @@ const ProblemPage = () => {
             setError(null);
             setOutput("");
             try {
-                const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/problems/question/${id}`, { withCredentials: true });
+                const res = await axiosInstance.get(`/problems/question/${id}`);
 
                 console.log("✅ Problem fetched successfully:", res.data);
 

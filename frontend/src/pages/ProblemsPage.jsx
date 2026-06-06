@@ -1,9 +1,9 @@
 import { Link } from "react-router";
-import axios from "axios";
 import Navbar from "../components/Navbar";
 import { ChevronRightIcon, Code2Icon } from "lucide-react";
 import { getDifficultyBadgeClass } from "../lib/utils";
 import { useEffect, useState } from "react";
+import axiosInstance from "../lib/axios.js";
 
 const ProblemsPage = () => {
   const [problems, setProblems] = useState([]);
@@ -15,7 +15,7 @@ const ProblemsPage = () => {
 
     const fetchProblems = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/problems/all-questions`, { withCredentials: true });
+        const res = await axiosInstance.get(`/problems/all-questions`);
 
         const data = await res.data;
 
