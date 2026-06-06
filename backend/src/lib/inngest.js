@@ -4,11 +4,12 @@ import User from "../models/User.js";
 import { upsertStreamUser, deleteStreamUser } from "./stream.js";
 
 // Create a client to send and receive events
-export const inngest = new Inngest({ id: "pratibha-iq" });
+export const inngest = new Inngest({ id: "pratibha-iq", isDev: process.env.NODE_ENV !== "production"});
 
 const syncUser = inngest.createFunction(
-  { id: "sync-user" },
-  { event: "clerk/user.created" },
+  {
+    id: "sync-user", triggers: [{ event: "clerk/user.created" }],
+  },
   async ({ event }) => {
     console.log("🔥 SYNC USER FUNCTION EXECUTED");
     console.log("EVENT ID:", event.data.id);
@@ -39,9 +40,9 @@ const syncUser = inngest.createFunction(
 );
 
 const deleteUserFromDB = inngest.createFunction(
-  { id: "delete-user-from-db" },
-  { event: "clerk/user.deleted" },
-  async ({ event }) => {
+  {
+    id: "delete-user-from-db", triggers: [{ event: "clerk/user.deleted" }],
+  }, async ({ event }) => {
     await connectDB();
     const { id } = event.data;
     await User.deleteOne({ clerkId: id });

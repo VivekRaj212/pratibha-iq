@@ -52,6 +52,7 @@ export const getActiveSessions = async (_, res) => {
   try {
     const sessions = await Session.find({ status: "active" })
       .populate("host", "name profileImage email clerkId")
+      .populate("participant", "name profileImage email clerkId")
       .sort({ createdAt: -1 })
       .limit(20);
     res.status(200).json({ sessions });
@@ -64,15 +65,27 @@ export const getActiveSessions = async (_, res) => {
 export const getMyRecentSessions = async (req, res) => {
   try {
     const userId = req.user._id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 9, 1), 500);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const skip = (page - 1) * limit;
 
-    // get sessions where user is host or participant
-    const sessions = await Session.find({
+    const filter = {
       status: "completed",
       $or: [{ host: userId }, { participant: userId }],
-    })
-      .sort({ createdAt: -1 })
-      .limit(20);
-    res.status(200).json({ sessions });
+    };
+
+    const [sessions, total] = await Promise.all([
+      Session.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Session.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      sessions,
+      total,
+      page,
+      limit,
+      hasMore: skip + sessions.length < total,
+    });
   } catch (error) {
     console.log("Error in getMyRecentSessions controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });

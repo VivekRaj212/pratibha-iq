@@ -8,7 +8,7 @@ const router = express.Router();
 router.post("/create-question", protectRoute, authorizeRoles("admin"), createProblemSet);
 
 // router.get("/all-questions", getAllProblems);
-router.get("/all-questions", protectRoute, getAllProblems);
+router.get("/all-questions", getAllProblems);
 
 // router.get("/question/:_id", getProblemById);
 
