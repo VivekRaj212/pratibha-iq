@@ -12,10 +12,12 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.60.0",
     "@monaco-editor/react": "^4.7.0",
+    "@stream-io/video-react-sdk": "^1.36.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-query": "^5.90.21",
     "axios": "^1.13.5",
     "canvas-confetti": "^1.9.4",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.566.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -23,6 +25,8 @@
     "react-resizable-panels": "^3.0.6",
     "react-router": "^7.13.0",
     "sockjs-client": "^1.6.1",
+    "stream-chat": "^9.43.1",
+    "stream-chat-react": "^14.1.0",
     "tailwindcss": "^4.1.18",
     "webstomp-client": "^1.2.6"
   },

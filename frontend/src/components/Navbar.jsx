@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
@@ -10,22 +10,22 @@ const Navbar = () => {
     const isActive = (path) => location.pathname === path;
 
     const dialogRef = useRef(null);
+    const [selectedTheme, setSelectedTheme] = useState(
+        () => localStorage.getItem("theme") || document.documentElement.getAttribute("data-theme") || "light"
+    );
 
     // Apply saved theme on page load
     useEffect(() => {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        }
-    }, []);
+        document.documentElement.setAttribute("data-theme", selectedTheme);
+    }, [selectedTheme]);
 
     const openThemeModal = () => {
         dialogRef.current?.showModal();
     };
 
     const handleThemeChange = (themeValue) => {
-        document.documentElement.setAttribute('data-theme', themeValue);
-        localStorage.setItem('theme', themeValue);
+        setSelectedTheme(themeValue);
+        localStorage.setItem("theme", themeValue);
 
         setTimeout(() => {
             dialogRef.current?.close();
@@ -119,7 +119,7 @@ const Navbar = () => {
                             <div className="p-4 overflow-y-auto scrollbar-hide" style={{ maxHeight: "420px" }}>
                                 <div className="grid grid-cols-3 gap-3">
                                     {themes.map((theme) => {
-                                        const isSelected = document.documentElement.getAttribute('data-theme') === theme.value;   // Fixed variable name
+                                        const isSelected = selectedTheme === theme.value;
 
                                         return (
                                             <button

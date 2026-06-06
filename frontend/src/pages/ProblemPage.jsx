@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router";
 import { PROBLEMS } from "../data/problems";
-// import { Divide } from "lucide-react";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ProblemDescription from "../components/ProblemDescription";
@@ -10,10 +9,16 @@ import CodeEditorPanel from "../components/CodeEditorPanel";
 import toast from "react-hot-toast";
 import confetti from "canvas-confetti";
 import { runCodeAPI } from "../lib/jdoodle.js";
+import { hydrateProblemStarterCode } from "../constants/starterTemplates.js";
+import {
+    extractResultLines,
+    formatExpectedForDisplay,
+    outputsMatch,
+} from "../lib/testRunner.js";
 import axios from "axios";
 
 const ProblemPage = () => {
-    const { id } = useParams();           // This is now the slug or ObjectId from URL
+    const { id } = useParams();
 
     const [selectedLanguage, setSelectedLanguage] = useState("javascript");
     const [code, setCode] = useState("");
@@ -24,9 +29,7 @@ const ProblemPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-
     useEffect(() => {
-
         if (!id) return;
 
         const fetchProblem = async () => {
@@ -38,16 +41,17 @@ const ProblemPage = () => {
 
                 console.log("✅ Problem fetched successfully:", res.data);
 
-                // If your backend returns the full problem data:
-                setFetchedProblem(res.data);
+                const hydratedProblem = hydrateProblemStarterCode(res.data?.data);
+                setFetchedProblem({
+                    ...res.data,
+                    data: hydratedProblem,
+                });
 
-                // Set initial code when problem loads
-                if (res.data?.data?.starterCode?.javascript) {
-                    setCode(res.data.data.starterCode.javascript);
-                } else if (res.data?.data?.starterCode) {
-                    // Fallback if starterCode structure is different
-                    const firstLang = Object.keys(res.data.data.starterCode)[0];
-                    if (firstLang) setCode(res.data.data.starterCode[firstLang]);
+                if (hydratedProblem?.starterCode?.javascript) {
+                    setCode(hydratedProblem.starterCode.javascript);
+                } else if (hydratedProblem?.starterCode) {
+                    const firstLang = Object.keys(hydratedProblem.starterCode)[0];
+                    if (firstLang) setCode(hydratedProblem.starterCode[firstLang]);
                 }
             } catch (err) {
                 console.error("Error fetching problem:", err);
@@ -61,10 +65,8 @@ const ProblemPage = () => {
         fetchProblem();
     }, [id]);
 
-
     console.log("Fetched problem from backend:", fetchedProblem);
 
-    // Handle language change
     const handleLanguageChange = (e) => {
         const newLang = e.target.value;
         setSelectedLanguage(newLang);
@@ -80,7 +82,6 @@ const ProblemPage = () => {
         setOutput("");
     };
 
-
     const triggerConfetti = () => {
         confetti({
             particleCount: 80,
@@ -94,44 +95,21 @@ const ProblemPage = () => {
         });
     }
 
-    const normalizeOutput = (output) => {
-        // normalize output for comparison (trim whitespace, handle different spacing)
-        return output
-            .trim()
-            .split("\n")
-            .map((line) =>
-                line
-                    .trim()
-                    // remove spaces after [ and before ]
-                    .replace(/\[\s+/g, "[")
-                    .replace(/\s+\]/g, "]")
-                    // normalize spaces around commas to single space after comma
-                    .replace(/\s*,\s*/g, ",")
-            )
-            .filter((line) => line.length > 0)
-            .join("\n");
-    };
-
-    const checkIfTestsPassed = (actualOutput, expectedOutput) => {
-        const normalizedActual = normalizeOutput(actualOutput);
-        const normalizedExpected = normalizeOutput(expectedOutput);
-
-        return normalizedActual == normalizedExpected;
-    };
-
     const handleRunCode = async () => {
         const problemData = fetchedProblem?.data;
 
+        if (!problemData) return toast.error("Problem data not loaded yet");
+        if (!problemData.testCases || problemData.testCases.length === 0)
+            return toast.error("No test cases found for this problem");
 
-        if (!problemData) {
-            toast.error("Problem data not loaded yet");
-            return;
-        }
-
-        // Check if testCases exist
-        if (!problemData.testCases || problemData.testCases.length === 0) {
-            toast.error("No test cases found for this problem");
-            return;
+        const fnName =
+            typeof problemData.functionName === "string"
+                ? problemData.functionName
+                : problemData.functionName?.[selectedLanguage];
+        if (!fnName) {
+            return toast.error(
+                `No function name for ${selectedLanguage}. Add functionName when creating the problem.`
+            );
         }
 
         setIsRunning(true);
@@ -141,49 +119,67 @@ const ProblemPage = () => {
             const result = await runCodeAPI({
                 code,
                 language: selectedLanguage,
+                testCases: problemData.testCases,
+                functionName: problemData.functionName,
+                parameters: problemData.parameters,
             });
 
-            setIsRunning(false);
-
-            if (result.success) {
-                setOutput(result.output || "No output");
-
-                // ✅ Use first test case from your schema
-                const firstTestCase = problemData.testCases[0];
-                const expectedOutput = firstTestCase.output;
-
-                if (expectedOutput === undefined) {
-                    toast.error("Test case output is missing");
-                    return;
-                }
-
-                console.log("real result:", result);
-                console.log("expected output:", expectedOutput);
-
-                const testsPassed = checkIfTestsPassed(
-                    result.output.trim(),
-                    String(expectedOutput).trim()   // Safe conversion
-                );
-
-                if (testsPassed) {
-                    triggerConfetti();
-                    toast.success("All tests passed! Great job!");
-                } else {
-                    toast.error("Tests failed. Check your output!");
-                }
-
-            } else {
-                console.error("Full execution error from JDoodle:", result.error);
+            if (!result.success) {
                 toast.error(result.error || "Execution failed");
+                setOutput(`Error:\n${result.error}`);  // ✅ show error in panel
+                return;
             }
+
+            const actualOutputs = extractResultLines(result.output);
+
+            const testResults = problemData.testCases.map((testCase, index) => {
+                const actual = actualOutputs[index] ?? "(no output)";
+                const passed =
+                    actual !== "(no output)" && outputsMatch(actual, testCase.output);
+                return {
+                    index: index + 1,
+                    actual,
+                    expected: formatExpectedForDisplay(testCase.output),
+                    passed,
+                };
+            });
+
+            console.log("show test results:", testResults);
+
+            const allPassed = testResults.every(t => t.passed);
+
+            console.log("all passed?", allPassed);
+
+            // ✅ Build readable output string for OutputPanel
+            const outputText = testResults.map(t =>
+                `Test ${t.index}: ${t.passed ? "✅ PASSED" : "❌ FAILED"}\n  Expected : ${t.expected}\n  Got      : ${t.actual}`
+            ).join("\n\n");
+
+            const summary = `\n─────────────────────\n${allPassed
+                ? "🎉 All test cases passed!"
+                : `${testResults.filter(t => t.passed).length}/${testResults.length} passed`
+                }\nCPU: ${result.cpuTime}s  |  Memory: ${result.memory} KB`;
+
+            setOutput(outputText + summary);  // ✅ this is what was missing
+
+            console.log("Test results:", testResults);
+
+            if (allPassed) {
+                toast.success("All tests passed! 🎉");
+                triggerConfetti();
+            } else {
+                toast.error("Some test cases failed");
+            }
+
         } catch (err) {
-            setIsRunning(false);
             toast.error("Failed to run code");
+            setOutput(`Unexpected error:\n${err.message}`);
             console.error(err);
+        } finally {
+            setIsRunning(false);  // ✅ moved to finally so it always resets
         }
     };
 
-    // Loading State
     if (loading) {
         return (
             <div className="h-screen bg-base-100 flex items-center justify-center">
@@ -192,7 +188,6 @@ const ProblemPage = () => {
         );
     }
 
-    // Error State
     if (error || !fetchedProblem?.data) {
         return (
             <div className="h-screen bg-base-100 flex flex-col items-center justify-center gap-4">
@@ -209,23 +204,21 @@ const ProblemPage = () => {
     }
 
     const problem = fetchedProblem.data;
+
     return (
         <div className="h-screen bg-base-100 flex flex-col">
             <Navbar />
             <div className="flex-1">
                 <PanelGroup direction="horizontal">
                     <Panel defaultSize={40} minSize={30}>
-                        {/*left panel - problem desc*/}
-                        <ProblemDescription
-                            problem={problem}  // You can pass list later if needed
-                        />
+                        <ProblemDescription problem={problem} />
                     </Panel>
+
                     <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
-                    {/*right panel -  code edito and output*/}
+
                     <Panel defaultSize={60} minSize={30}>
                         <PanelGroup direction="vertical">
-                            {/* Top panel - Code editor */}
-                            <Panel defaultSize={70} minSize={30}>
+                            <Panel defaultSize={60} minSize={25}>
                                 <CodeEditorPanel
                                     selectedLanguage={selectedLanguage}
                                     code={code}
@@ -238,9 +231,7 @@ const ProblemPage = () => {
 
                             <PanelResizeHandle className="h-2 bg-base-300 hover:bg-primary transition-colors cursor-row-resize" />
 
-                            {/* Bottom panel - Output Panel*/}
-
-                            <Panel defaultSize={30} minSize={30}>
+                            <Panel defaultSize={40} minSize={20}>
                                 <OutputPanel output={output} />
                             </Panel>
                         </PanelGroup>

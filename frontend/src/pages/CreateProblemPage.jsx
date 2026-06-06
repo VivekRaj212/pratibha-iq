@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import TagInput from "../components/TagInput";
 import ALL_LANGUAGES from "../constants/languages.js";
-import starterTemplates from "../constants/starterTemplates.js";
+import { buildStarterTemplate } from "../constants/starterTemplates.js";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-react";
@@ -53,7 +53,7 @@ function AddButton({ label, onClick }) {
 
 const defaultLangData = (lang) => ({
     functionName: "",
-    starterCode: starterTemplates[lang]?.("") ?? "",
+    starterCode: buildStarterTemplate(lang),
 });
 
 export default function CreateProblemPage() {
@@ -80,6 +80,9 @@ export default function CreateProblemPage() {
     const [langData, setLangData] = useState({
         javascript: defaultLangData("javascript"),
     });
+    const [starterCodeTouched, setStarterCodeTouched] = useState({
+        javascript: false,
+    });
 
     // Parameters
     const [params, setParams] = useState([{ name: "", type: "" }]);
@@ -93,6 +96,34 @@ export default function CreateProblemPage() {
     // Examples
     const [examples, setExamples] = useState([{ input: "", output: "", explanation: "" }]);
 
+    useEffect(() => {
+        setLangData((prev) => {
+            let changed = false;
+            const next = { ...prev };
+
+            activeLanguages.forEach((lang) => {
+                const existing = next[lang] ?? defaultLangData(lang);
+                if (starterCodeTouched[lang]) return;
+
+                const generatedStarterCode = buildStarterTemplate(lang, {
+                    functionName: existing.functionName,
+                    parameters: params,
+                    returnType,
+                });
+
+                if (existing.starterCode !== generatedStarterCode) {
+                    next[lang] = {
+                        ...existing,
+                        starterCode: generatedStarterCode,
+                    };
+                    changed = true;
+                }
+            });
+
+            return changed ? next : prev;
+        });
+    }, [activeLanguages, params, returnType, starterCodeTouched]);
+
     // ── Language helpers ──
 
     function addLanguage() {
@@ -100,7 +131,17 @@ export default function CreateProblemPage() {
         setActiveLanguages((prev) => [...prev, selectedLang]);
         setLangData((prev) => ({
             ...prev,
-            [selectedLang]: defaultLangData(selectedLang),
+            [selectedLang]: {
+                functionName: "",
+                starterCode: buildStarterTemplate(selectedLang, {
+                    parameters: params,
+                    returnType,
+                }),
+            },
+        }));
+        setStarterCodeTouched((prev) => ({
+            ...prev,
+            [selectedLang]: false,
         }));
         setActiveLang(selectedLang);
     }
@@ -115,11 +156,27 @@ export default function CreateProblemPage() {
     function updateLangField(lang, field, value) {
         setLangData((prev) => {
             const entry = { ...prev[lang], [field]: value };
-            if (field === "functionName" && starterTemplates[lang]) {
-                entry.starterCode = starterTemplates[lang](value);
+            if (field === "functionName") {
+                entry.starterCode = buildStarterTemplate(lang, {
+                    functionName: value,
+                    parameters: params,
+                    returnType,
+                });
             }
             return { ...prev, [lang]: entry };
         });
+        if (field === "functionName") {
+            setStarterCodeTouched((prev) => ({
+                ...prev,
+                [lang]: false,
+            }));
+        }
+        if (field === "starterCode") {
+            setStarterCodeTouched((prev) => ({
+                ...prev,
+                [lang]: true,
+            }));
+        }
     }
 
     // Params
@@ -197,9 +254,15 @@ export default function CreateProblemPage() {
         for (const tc of testCases) {
             if (!tc.input || !tc.output) continue;
             try {
+                let parsedOutput = tc.output;
+                try {
+                    parsedOutput = JSON.parse(tc.output);
+                } catch {
+                    // keep as string (e.g. word) if not valid JSON
+                }
                 parsedTestCases.push({
-                    input: JSON.parse(tc.input),   // string → actual array
-                    output: tc.output,
+                    input: JSON.parse(tc.input),
+                    output: parsedOutput,
                 });
             } catch {
                 alert(`Invalid input format in test case: "${tc.input}"\nMust be valid JSON array, e.g. ["11","123"]`);
@@ -225,6 +288,8 @@ export default function CreateProblemPage() {
             constraints: constraints.filter(Boolean),
             examples: examples.filter((e) => e.input || e.output),
         };
+
+        console.log("Prepared payload for API:", payload);
 
         // ==================== CALL API ====================
         try {
@@ -288,9 +353,13 @@ export default function CreateProblemPage() {
                         onChange={(e) => setDescription(e.target.value)}
                     />
                     <div className="flex gap-3">
-                        <label className="select">
-                            <span className="label">Difficulty</span>
-                            <select>
+                        <label className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-1.5 bg-white">
+                            <span className="text-sm text-gray-600">Difficulty</span>
+                            <select
+                                value={difficulty}
+                                onChange={(e) => setDifficulty(e.target.value)}
+                                className="bg-transparent text-sm text-gray-800 focus:outline-none"
+                            >
                                 <option>Easy</option>
                                 <option>Medium</option>
                                 <option>Hard</option>

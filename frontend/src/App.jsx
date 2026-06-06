@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { Routes, Route, Navigate } from "react-router";
 import HomePage from "./pages/HomePage";
@@ -5,13 +6,17 @@ import ProblemsPage from "./pages/ProblemsPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProblemPage from "./pages/ProblemPage";
 import CreateProblemPage from "./pages/CreateProblemPage";
+import SessionPage from "./pages/SessionPage";
 import { Toaster } from "react-hot-toast";
+import { setAuthTokenGetter } from "./lib/axios";
 
 function App() {
   const { isSignedIn, isLoaded, user } = useUser();
   const { getToken } = useAuth();
-  const token = getToken();
-  console.log("TOKEN:", token);
+
+  useEffect(() => {
+    setAuthTokenGetter(getToken);
+  }, [getToken]);
 
   if (!isLoaded) return null;
 
@@ -35,6 +40,7 @@ function App() {
           path="/problem/:id"
           element={isSignedIn ? <ProblemPage /> : <Navigate to={"/"} />}
         />
+        <Route path="/session/:id" element={isSignedIn ? <SessionPage /> : <Navigate to={"/"} />} />
       </Routes>
       <Toaster />
     </>
